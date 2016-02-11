@@ -111,7 +111,7 @@ sc = SparkContext(conf=conf)
 #cv = CountVectorizer(inputCol="raw", outputCol="vectors")
 sql_context = SQLContext(sc)
 
-file_name = "hdfs://ec2-52-20-95-35.compute-1.amazonaws.com:9000/20130801/00.json"
+file_name = input_file_name
 
 cluster = Cluster()
 session = cluster.connect()
