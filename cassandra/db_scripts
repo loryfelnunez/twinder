@@ -1,0 +1,11 @@
+CREATE KEYSPACE twinder WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
+
+CREATE TABLE twinder.vocab_user (word text PRIMARY KEY, users text)
+
+CREATE TABLE twinder.user_vocab (user text PRIMARY KEY, words text)
+
+CREATE TABLE twinder.realtime_match (user text PRIMARY KEY, timestamp int, tweet text)
+
+CREATE TABLE twinder.tweet_info (tid text PRIMARY KEY, time text, tweet text, udesc text, uid text, uname text)
+
+ 
