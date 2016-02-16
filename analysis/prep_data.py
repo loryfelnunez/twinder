@@ -17,31 +17,32 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from numpy.testing import assert_almost_equal, assert_equal
 
-
-
 from cassandra.cluster import Cluster
 import pyspark_cassandra
-#################
-# NLP FUNCTIONS #
-#################
-
-# Module-level global variables for the `tokenize` function below
-# Broadcasat variables
-#STEMMER = PorterStemmer()
 
 
-###############################
-# Function to:
+##################################################
+# NLP FUNCTIONS                                 #
+##################################################
+#
+# def tokenize: 
+# 
 #     1. Remove non-ascii
 #     2. Remove URLS 
 #     3. break text into "tokens"
 #     4. get POS and remove POS that may cause junk 
+#        (commented out because it took too long 6mins on  5000 tweets) 
 #     5. lowercase  
 #     6. remove punctuation 
 #     7. remove NLTK stopwords 
-#     8. remove custom stowords
-#     9. stem (commented out due to unreadable resultss) 
+#     8. remove custom stopwords
+#     9. stem (commented out due to unreadable results) 
+#
+# NB: 8. custom stopwords should be in an external file
+#
+#
 ##############################
+
 def tokenize(tweet, udesc):
     if udesc is None:
         udesc = ''
@@ -80,15 +81,12 @@ def get_topics(uid, tweets):
     if len(word_cv) > 0:
         train_data_features = vectorizer.fit_transform(word_cv)
         train_data_features = train_data_features.toarray()
-
-        print 'train data features ', train_data_features
         vocab = vectorizer.get_feature_names()
         for v in vocab:
             tup = v, uid 
             new_json.append(tup)
             print "USER VOCAB ", v, uid
     return  new_json    
-
 
        
 def is_verified(topic):
@@ -105,10 +103,8 @@ def is_verified(topic):
 conf = SparkConf() \
        .setAppName("TWINDER") \
        .setMaster("spark://ip-172-31-0-228:7077")
-       ##.set("spark.cassandra.connection.host", "127.0.01")
 
 sc = SparkContext(conf=conf)
-#cv = CountVectorizer(inputCol="raw", outputCol="vectors")
 sql_context = SQLContext(sc)
 
 file_name = input_file_name
@@ -116,33 +112,31 @@ file_name = input_file_name
 cluster = Cluster()
 session = cluster.connect()
 session.set_keyspace('twinder')
-# Module-level global variables for the `tokenize` function below
-# Broadcasat variables
+
+
+# Broadcast variables
+
 b_PUNCTUATION = sc.broadcast(set(string.punctuation))
 b_STOPWORDS = sc.broadcast(set(stopwords.words('english')))
 b_CUSTOM_STOPWORDS = sc.broadcast(['ll', 'let', 'followback', 'follow', 'yay', 'http', 'retweet', 'rt'])
 b_STOP_TYPES = sc.broadcast(['DET', 'CNJ', 'RB', 'JJ', 'PRP', 'TO', 'IN'])
 STEMMER = PorterStemmer()
-#stmt = session.prepare("""
-#        INSERT INTO {}.user_tweet (uid, tid, uname, tweet)
-#        VALUES (?, ?, ?, ?)
-#    """.strip().format(keyspace))
-#data_raw = sc.textFile(file_name)
-#data = data_raw.map(lambda line: json.loads(line))
-#data_pared = data.map(lambda line: (line[text_label]))
-#data = data_raw.map(lambda line: json.loads(line))
+
+
 tweet = sql_context.read.json(file_name)
 tweet.registerTempTable("tweet")
 
-tweet.printSchema()
+# NB should set a logging level
+#tweet.printSchema()
 
 # SQL statements can be run by using the sql methods provided by sqlContext.
 # this is a DataFrame, we have to update the text column and the created_at column
-#df = sql_context.sql("SELECT id_str, user.id_str, created_at, user.screen_name,  user.description, place.country_code, retweet_count, text, user.name, user.followers_count  FROM tweet WHERE lang = \"en\"" )
 df_pared = sql_context.sql("SELECT user.id_str as uid, id_str as tid, text as tweet, user.screen_name as uname, user.description as udesc from tweet WHERE lang = \"en\"" )
+
 
 ###########################################
 #  WRITING TO CASSANDRA (PARED TWEETS)
+#  We filter Twitter metadata
 ###########################################
 schema_string = "uid tid tweet uname udesc"
 fields = [StructField(field_name, StringType(), True) for field_name in schema_string.split()]
@@ -154,7 +148,6 @@ df_pared.registerTempTable("tweet_info")
 user_ids = sql_context.sql("SELECT uid, tid, tweet, uname, udesc from tweet_info")
 #user_ids.write.format("org.apache.spark.sql.cassandra").options(table ="tweet_info", keyspace = "twinder").save(mode="append")
 
-######## END WRITE #########################
 
 #### STEP 2:  Cleaning the tweets, returning a tuple fo topic=> user
 rdd_tuples = df_pared.map(lambda (userid, id_str, text, uname, udesc): (userid, id_str, tokenize(text, udesc), uname, udesc)) \
