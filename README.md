@@ -1,5 +1,5 @@
 # Twinder 
-Finding the your Twitter Matches
+Finding your Twitter Matches
 
 ## Data:
 1. Twitter Static Data Set 
