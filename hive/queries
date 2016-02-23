@@ -1,0 +1,1 @@
+SELECT user_vocab.user, user_vocab.words FROM user_vocab JOIN tweets ON user_vocab.user = tweets.user.screen_name
